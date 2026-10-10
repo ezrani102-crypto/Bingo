@@ -7,11 +7,10 @@
     "start": "node server.js",
     "dev": "node server.js",
     "test": "node --test --test-concurrency=1 tests/*.test.js",
-    "migrate:postgres-to-tidb": "node scripts/migrate-postgres-to-tidb.js"
+    "migrate:postgres-to-supabase": "node scripts/migrate-postgres-to-supabase.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "mysql2": "^3.24.5",
     "pg": "^8.23.1"
   },
   "engines": {

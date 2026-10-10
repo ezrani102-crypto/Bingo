@@ -14,7 +14,7 @@ const crypto = require('crypto');
 const url = require('url');
 
 const { query, transactional, pool, healthCheck, databaseConfigured } = require('./database/db');
-const DATABASE_ENABLED = Boolean(process.env.TIDB_DATABASE_URL || process.env.DATABASE_URL);
+const DATABASE_ENABLED = databaseConfigured;
 
 const {
   createRoom,

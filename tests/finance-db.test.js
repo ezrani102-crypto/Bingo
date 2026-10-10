@@ -15,10 +15,10 @@ const {
   settlePrizeIfMissing,
 } = require('../database/finance');
 
-const { query, execute, databaseConfigured, mysqlSql, placeholdersToMysql, prepareStatement } = require('../database/db');
+const { query, databaseConfigured } = require('../database/db');
 const { createRoom, getRoomById, getRoomCalledNumbers, progressRoom, reserveCartelaAtomic, releaseRoomCartelaAtomic } = require('../database/rooms');
 
-const hasDb = databaseConfigured;
+const hasDb = databaseConfigured && process.env.RUN_DB_INTEGRATION_TESTS === '1';
 const testPrefix = `test-${process.pid}-${Date.now()}-`;
 const testId = (suffix) => `${testPrefix}${suffix}`;
 
@@ -59,74 +59,12 @@ test('available wallet balance matches the amount cartela purchase can spend', (
   assert.throws(() => getAvailableWalletBalance({ play_balance: '240.00', reserved_balance: '0.00' }), /incomplete/i);
 });
 
-test('TiDB query adapter converts PostgreSQL placeholders, casts, and intervals safely', () => {
-  const placeholderResult = placeholdersToMysql('SELECT $2, $1, $2', ['first', 'second']);
-  assert.equal(placeholderResult.statement, 'SELECT ?, ?, ?');
-  assert.deepEqual(placeholderResult.params, ['second', 'first', 'second']);
-  assert.equal(
-    mysqlSql("SELECT $1::timestamptz <= CURRENT_TIMESTAMP - INTERVAL '800 milliseconds'"),
-    'SELECT CAST($1 AS DATETIME(3)) <= CURRENT_TIMESTAMP - INTERVAL 800000 MICROSECOND'
-  );
-});
-
-test('TiDB query adapter injects UUIDs and emulates insert RETURNING', () => {
-  const prepared = prepareStatement(
-    'INSERT INTO transactions (user_id, amount, metadata) VALUES ($1, $2, $3::jsonb) RETURNING *',
-    ['user-1', 10, '{"source":"test"}']
-  );
-  assert.match(prepared.statement, new RegExp(`^INSERT INTO transactions \\(id, user_id, amount, metadata\\) VALUES \\('${prepared.insertId}', \\?, \\?, \\?\\)$`));
-  assert.match(prepared.insertId, /^[0-9a-f-]{36}$/i);
-  assert.deepEqual(prepared.params, ['user-1', 10, '{"source":"test"}']);
-  assert.equal(prepared.returning, '*');
-});
-
-test('TiDB query adapter injects a UUID for each row in a multi-row insert', () => {
-  const prepared = prepareStatement(
-    'INSERT INTO room_called_numbers (room_id, number, letter) VALUES ($1, 1, $2), ($1, 2, $2), ($1, 3, $2)',
-    ['room-1', 'B']
-  );
-  assert.equal(prepared.insertIds.length, 3);
-  assert.equal((prepared.statement.match(/'[\da-f-]{36}'/gi) || []).length, 3);
-  assert.deepEqual(prepared.params, ['room-1', 'B', 'room-1', 'B', 'room-1', 'B']);
-});
-
-test('TiDB query adapter emulates UPDATE RETURNING using selected row IDs', async () => {
-  const calls = [];
-  const client = {
-    async query(statement, params) {
-      calls.push({ statement, params });
-      if (statement.startsWith('SELECT id FROM wallets')) return [[{ id: 'wallet-1' }], []];
-      if (statement.startsWith('UPDATE wallets')) return [{ affectedRows: 1 }, []];
-      if (statement.startsWith('SELECT * FROM wallets')) return [[{ id: 'wallet-1', balance: '25.00' }], []];
-      throw new Error(`Unexpected SQL in adapter test: ${statement}`);
-    },
-  };
-
-  const result = await execute(
-    client,
-    'UPDATE wallets SET balance = $1 WHERE user_id = $2 RETURNING *',
-    ['25.00', 'user-1']
-  );
-  assert.deepEqual(result.rows, [{ id: 'wallet-1', balance: '25.00' }]);
-  assert.equal(result.rowCount, 1);
-  assert.deepEqual(calls.map(call => call.statement), [
-    'SELECT id FROM wallets WHERE user_id = ?',
-    'UPDATE wallets SET balance = ? WHERE user_id = ?',
-    'SELECT * FROM wallets WHERE id IN (?)',
-  ]);
-  assert.deepEqual(calls.map(call => call.params), [
-    ['user-1'],
-    ['25.00', 'user-1'],
-    ['wallet-1'],
-  ]);
-});
-
 if (!hasDb) {
-  test('DB integration tests skipped: a TiDB mysql:// URL is not configured', () => {
+  test('DB integration tests skipped: opt in with RUN_DB_INTEGRATION_TESTS=1 and a PostgreSQL URL', () => {
     assert.ok(true);
   });
 } else {
-  test('user creation and balance retrieval work with TiDB', async () => {
+  test('user creation and balance retrieval work with PostgreSQL', async () => {
     await cleanupFixtures();
     const tgId = testId('user-1001');
 
