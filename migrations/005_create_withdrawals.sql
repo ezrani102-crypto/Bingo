@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS withdrawals (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  user_id CHAR(36),
+  tg_id VARCHAR(32) NOT NULL,
+  amount DECIMAL(12, 2) NOT NULL,
+  method VARCHAR(20) NOT NULL,
+  name VARCHAR(255),
+  destination VARCHAR(255) NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  paid_at DATETIME(3),
+  rejected_at DATETIME(3),
+  paid_by VARCHAR(32),
+  rejected_by VARCHAR(32),
+  KEY idx_withdrawals_user_id (user_id),
+  KEY idx_withdrawals_tg_id (tg_id),
+  KEY idx_withdrawals_status (status),
+  KEY idx_withdrawals_created_at (created_at),
+  CONSTRAINT fk_withdrawals_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_withdrawals_amount CHECK (amount > 0),
+  CONSTRAINT chk_withdrawals_method CHECK (method IN ('Telebirr', 'CBE')),
+  CONSTRAINT chk_withdrawals_status CHECK (status IN ('PENDING', 'PAID', 'REJECTED'))
+) ENGINE=InnoDB;

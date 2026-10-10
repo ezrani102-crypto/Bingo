@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS game_history (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  room_id CHAR(36),
+  user_id CHAR(36),
+  tg_id VARCHAR(32),
+  result VARCHAR(16) NOT NULL,
+  prize DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  stake DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  pattern VARCHAR(255),
+  cartela_ids JSON,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  KEY idx_game_history_user_id (user_id),
+  KEY idx_game_history_tg_id (tg_id),
+  KEY idx_game_history_room_id (room_id),
+  KEY idx_game_history_created_at (created_at),
+  CONSTRAINT fk_game_history_room FOREIGN KEY (room_id) REFERENCES rooms (id) ON DELETE SET NULL,
+  CONSTRAINT fk_game_history_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_game_history_result CHECK (result IN ('WIN', 'LOSS')),
+  CONSTRAINT chk_game_history_prize CHECK (prize >= 0),
+  CONSTRAINT chk_game_history_stake CHECK (stake >= 0)
+) ENGINE=InnoDB;
